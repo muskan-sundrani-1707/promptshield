@@ -17,12 +17,15 @@ class RunRequest(TargetConfig):
     categories: Optional[list[str]] = None               # None = all categories
     include_attacks: bool = True
     include_legit: bool = True
+    dataset: Literal["main", "heldout"] = "main"
     limit: Optional[int] = Field(default=None, ge=1)     # run only first N per kind (for quick tests)
 class EvaluateRequest(BaseModel):
     # If left empty, JUDGE_PROVIDER / JUDGE_MODEL from .env are used
     judge_provider: Optional[Literal["ollama", "anthropic", "openai"]] = None
     judge_model: Optional[str] = None
-
+class ApproveRequest(BaseModel):
+    approved: bool
+    edited_patch: Optional[str] = Field(default=None, max_length=500)   # human may reword the rule
 
 class ReviewRequest(BaseModel):
     final_verdict: str = Field(min_length=1)

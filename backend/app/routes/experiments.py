@@ -34,9 +34,10 @@ def dataset_summary():
 def run(req: RunRequest, db: Session = Depends(get_db)):
     """Run the fixed dataset on one prompt version and save real responses."""
     try:
-        return test_runner.run_experiment(
+               return test_runner.run_experiment(
             db, req.prompt_name, req.provider, req.model, req.temperature,
-            req.repeats, req.categories, req.include_attacks, req.include_legit, req.limit)
+            req.repeats, req.categories, req.include_attacks, req.include_legit, req.limit,
+            req.dataset)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -57,3 +58,17 @@ def experiment_runs(experiment_id: int, db: Session = Depends(get_db)):
     return [{"id": r.id, "test_id": r.test_id, "kind": r.kind, "category": r.category,
              "input": r.attack_input, "expected": r.expected_behavior,
              "response": r.target_response, "run_index": r.run_index} for r in runs]
+
+@router.get("/dashboard/summary")
+def dashboard_summary(db: Session = Depends(get_db)):
+    """Real counts from the database. Nothing hardcoded."""
+    from app.models.db_models import Evaluation, Defense
+    total_runs = db.query(TestRun).count()
+    evaluated = db.query(Evaluation).count()
+    succeeded = db.query(Evaluation).filter(Evaluation.verdict == "SUCCEEDED").count()
+    resisted = (db.query(Evaluation).join(TestRun, TestRun.id == Evaluation.test_run_id)
+                .filter(TestRun.kind == "attack", Evaluation.verdict == "FAILED").count())
+    return {"experiments": db.query(Experiment).count(), "total_runs": total_runs,
+            "evaluated": evaluated, "attacks_succeeded": succeeded,
+            "attacks_resisted": resisted, "defenses": db.query(Defense).count(),
+            "prompt_versions": db.query(PromptVersion).count()}

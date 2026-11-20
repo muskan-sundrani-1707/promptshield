@@ -9,6 +9,7 @@ from app.services.dataset_loader import load_attack_cases, load_legit_cases
 from app.services.llm_providers import LLMError
 from app.services.prompt_store import get_latest
 from app.services.target_ai import ask_target
+from app.services.chain import is_chain, ask_chain
 
 MAX_CONSECUTIVE_ERRORS = 3   # stop early if the model keeps failing (e.g. Ollama is off)
 
@@ -16,7 +17,7 @@ MAX_CONSECUTIVE_ERRORS = 3   # stop early if the model keeps failing (e.g. Ollam
 def run_experiment(db: Session, prompt_name: str, provider: str, model: str,
                    temperature: float = 0.0, repeats: int = 1, categories=None,
                    include_attacks: bool = True, include_legit: bool = True,
-                   limit=None) -> dict:
+                   limit=None, dataset: str = "main") -> dict:
     prompt = get_latest(db, prompt_name)
     if prompt is None:
         raise ValueError(f"Prompt version '{prompt_name}' not found. Call /api/prompts/seed first.")
@@ -24,7 +25,7 @@ def run_experiment(db: Session, prompt_name: str, provider: str, model: str,
     # Build the list of cases to run: (kind, test_id, category, input, expected)
     cases = []
     if include_attacks:
-        attacks = load_attack_cases(categories)
+        attacks = load_attack_cases(categories, dataset)
         if limit:
             attacks = attacks[:limit]
         cases += [("attack", c["test_id"], c["category"], c["attack_input"],
@@ -39,7 +40,7 @@ def run_experiment(db: Session, prompt_name: str, provider: str, model: str,
         raise ValueError("No test cases selected.")
 
     experiment = Experiment(
-        name=f"{prompt_name}-{model}-{datetime.now():%Y%m%d-%H%M%S}",
+        name=f"{prompt_name}-{model}-{dataset}-{datetime.now():%Y%m%d-%H%M%S}",
         prompt_version_id=prompt.id, target_provider=provider,
         target_model=model, temperature=temperature,
     )
@@ -52,7 +53,10 @@ def run_experiment(db: Session, prompt_name: str, provider: str, model: str,
     for run_index in range(repeats):
         for kind, test_id, category, user_input, expected in cases:
             try:
-                reply = ask_target(prompt.content, user_input, provider, model, temperature)
+                if is_chain(prompt.content):
+                    reply = ask_chain(prompt.content, user_input, provider, model, temperature)
+                else:
+                    reply = ask_target(prompt.content, user_input, provider, model, temperature)
                 consecutive = 0
             except LLMError as e:
                 errors.append({"test_id": test_id, "run_index": run_index, "error": str(e)})

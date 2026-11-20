@@ -24,10 +24,9 @@ def _load(filename: str, required: set) -> list:
         if missing:
             raise ValueError(f"{filename}: case {case.get('test_id')} is missing {missing}")
     return cases
-
-
-def load_attack_cases(categories=None) -> list:
-    cases = _load("attack_cases.json", ATTACK_FIELDS)
+def load_attack_cases(categories=None, dataset="main") -> list:
+    filename = "attack_cases_heldout.json" if dataset == "heldout" else "attack_cases.json"
+    cases = _load(filename, ATTACK_FIELDS)
     if categories:
         cases = [c for c in cases if c["category"] in categories]
     return cases
