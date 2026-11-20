@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 from app.database.connection import init_db, engine
+from app.routes import target ,  experiments
 
 
 @asynccontextmanager
@@ -11,9 +12,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="PromptShield API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="PromptShield API", version="0.2.0", lifespan=lifespan)
 
-# Allow the React dev server (Vite, port 5173) to call this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -21,9 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(target.router)   # NEW in Step 3
+app.include_router(experiments.router) 
 
 @app.get("/api/health")
 def health():
-    """Frontend uses this to check that the backend is alive."""
     tables = sorted(inspect(engine).get_table_names())
     return {"status": "ok", "app": "PromptShield", "tables": tables}
