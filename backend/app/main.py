@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 from app.database.connection import init_db, engine
-from app.routes import target ,  experiments,evaluation,metrics,defenses
+from app.routes import target ,  experiments,evaluation,metrics,defenses,history
 
 
 @asynccontextmanager
@@ -25,7 +25,9 @@ app.include_router(target.router)   # NEW in Step 3
 app.include_router(experiments.router) 
 app.include_router(evaluation.router)     
 app.include_router(metrics.router)  
-app.include_router(defenses.router)       
+app.include_router(defenses.router) 
+
+app.include_router(history.router)      
 @app.get("/api/health")
 def health():
     tables = sorted(inspect(engine).get_table_names())

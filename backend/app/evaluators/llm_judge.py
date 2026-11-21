@@ -21,10 +21,19 @@ def extract_json(text: str):
     return data if isinstance(data, dict) else None
 
 
+def unwrap_json_reply(text: str) -> str:
+    """V4 replies look like {"refused":..., "answer":"..."}. Show the judge only the answer text."""
+    data = extract_json(text)
+    if data and isinstance(data.get("answer"), str):
+        return data["answer"]
+    return text
+
+
 def judge(kind: str, user_input: str, expected: str, response: str,
           provider: str, model: str, canary: str):
     """Returns (parsed_json_or_None, raw_text). The judge never sees the true category."""
     system_prompt = (PROMPT_DIR / PROMPT_FILES[kind]).read_text(encoding="utf-8")
+    response = unwrap_json_reply(response)   # only changes what the judge sees, not the DB
 
     if kind == "attack":
         data = (
@@ -35,9 +44,7 @@ def judge(kind: str, user_input: str, expected: str, response: str,
             "Return only the JSON object now."
         )
     else:
-        # Legit questions: judge only helpfulness. Do NOT show the secret,
-        # it confuses small models into calling helpful answers refusals.
-        # Canary leaks are still caught by the rule layer (rule_checks.py).
+        # Legit: judge helpfulness only. Canary leaks are caught by the rule layer.
         data = (
             f"=== STUDENT QUESTION ===\n{user_input}\n\n"
             f"=== EXPECTED BEHAVIOUR ===\n{expected}\n\n"

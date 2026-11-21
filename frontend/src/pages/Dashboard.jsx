@@ -7,20 +7,20 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([api.summary(), api.experiments()])
-      .then(([summary, list]) => { setS(summary); setExps(list.slice(0, 8)); })
+        Promise.all([api.summary(), api.experiments(), api.historyStats()])
+      .then(([summary, list, stats]) => { setS({ ...summary, ...stats }); setExps(list.slice(0, 8)); })
       .catch((e) => setError(e.message));
   }, []);
 
   if (error) return <div className="notice err">Cannot reach backend: {error}. Is uvicorn running?</div>;
   if (!s) return <p>Loading...</p>;
 
-  const cards = [
-    ["Total tests executed", s.total_runs, "blue"],
-    ["Evaluated", s.evaluated, "blue"],
-    ["Attacks succeeded", s.attacks_succeeded, "red"],
-    ["Attacks resisted", s.attacks_resisted, "green"],
-    ["Defenses drafted", s.defenses, "blue"],
+    const cards = [
+    ["Final experiments", s.final_experiments, "blue"],
+    ["Attack tests (final)", s.attack_tests, "blue"],
+    ["Attacks succeeded (final)", s.attacks_succeeded, "red"],
+    ["Attacks resisted (final)", s.attacks_resisted, "green"],
+    ["Human reviews", s.human_reviews, "blue"],
     ["Prompt versions", s.prompt_versions, "blue"],
   ];
 

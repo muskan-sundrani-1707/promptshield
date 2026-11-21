@@ -17,7 +17,7 @@ class RunRequest(TargetConfig):
     categories: Optional[list[str]] = None               # None = all categories
     include_attacks: bool = True
     include_legit: bool = True
-    dataset: Literal["main", "heldout"] = "main"
+    dataset: Literal["main", "heldout","fresh"] = "main"
     limit: Optional[int] = Field(default=None, ge=1)     # run only first N per kind (for quick tests)
 class EvaluateRequest(BaseModel):
     # If left empty, JUDGE_PROVIDER / JUDGE_MODEL from .env are used

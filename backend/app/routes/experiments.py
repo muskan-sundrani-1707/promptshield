@@ -72,3 +72,6 @@ def dashboard_summary(db: Session = Depends(get_db)):
             "evaluated": evaluated, "attacks_succeeded": succeeded,
             "attacks_resisted": resisted, "defenses": db.query(Defense).count(),
             "prompt_versions": db.query(PromptVersion).count()}
+@router.get("/datasets/attacks")
+def dataset_attacks():
+    return dataset_loader.load_attack_cases(dataset="main")

@@ -26,7 +26,7 @@ def main():
     p.add_argument("--model", default="llama3.2")
     p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--limit", type=int, default=None, help="only first N per kind (quick test)")
-    p.add_argument("--dataset", default="main", choices=["main", "heldout"])
+    p.add_argument("--dataset", default="main", choices=["main", "heldout","fresh"])
     args = p.parse_args()
 
     print("Seeding prompts:", call("POST", "/api/prompts/seed"))

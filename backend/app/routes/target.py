@@ -29,3 +29,34 @@ def chat(req: ChatRequest):
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"response": reply}
+from app.database.connection import get_db
+from app.evaluators.rule_checks import canary_leaked
+from app.services.prompt_store import get_latest
+from app.services.chain import is_chain, ask_chain
+from fastapi import Depends
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+
+
+class RedTeamRequest(BaseModel):
+    prompt_name: str = Field(min_length=1)
+    user_message: str = Field(min_length=1, max_length=4000)
+    provider: str = "ollama"
+    model: str = "llama3.2"
+
+
+@router.post("/redteam")
+def redteam(req: RedTeamRequest, db: Session = Depends(get_db)):
+    """Send one custom attack to a stored prompt version. Not saved, not scored."""
+    prompt = get_latest(db, req.prompt_name)
+    if prompt is None:
+        raise HTTPException(status_code=404, detail=f"Prompt {req.prompt_name} not found.")
+    try:
+        if is_chain(prompt.content):
+            reply = ask_chain(prompt.content, req.user_message, req.provider, req.model, 0.0)
+        else:
+            reply = ask_target(prompt.content, req.user_message, req.provider, req.model, 0.0)
+    except LLMError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    return {"prompt": req.prompt_name, "response": reply,
+            "canary_leaked": canary_leaked(reply)}
