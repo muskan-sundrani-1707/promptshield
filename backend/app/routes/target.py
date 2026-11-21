@@ -1,7 +1,14 @@
 import time
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+from app.database.connection import get_db
+from app.evaluators.rule_checks import canary_leaked
+from app.models.db_models import ManualTest
 from app.models.schemas import TargetConfig, ChatRequest
+from app.services.chain import is_chain, ask_chain
 from app.services.llm_providers import LLMError
+from app.services.prompt_store import get_latest
 from app.services.target_ai import ask_target
 
 router = APIRouter(prefix="/api/target", tags=["target"])
@@ -29,13 +36,6 @@ def chat(req: ChatRequest):
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
     return {"response": reply}
-from app.database.connection import get_db
-from app.evaluators.rule_checks import canary_leaked
-from app.services.prompt_store import get_latest
-from app.services.chain import is_chain, ask_chain
-from fastapi import Depends
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 
 class RedTeamRequest(BaseModel):
@@ -47,7 +47,8 @@ class RedTeamRequest(BaseModel):
 
 @router.post("/redteam")
 def redteam(req: RedTeamRequest, db: Session = Depends(get_db)):
-    """Send one custom attack to a stored prompt version. Not saved, not scored."""
+    """Send one custom attack to a stored prompt version.
+    Saved in manual_tests for the History page, but NOT scored and NOT part of any experiment."""
     prompt = get_latest(db, req.prompt_name)
     if prompt is None:
         raise HTTPException(status_code=404, detail=f"Prompt {req.prompt_name} not found.")
@@ -58,5 +59,18 @@ def redteam(req: RedTeamRequest, db: Session = Depends(get_db)):
             reply = ask_target(prompt.content, req.user_message, req.provider, req.model, 0.0)
     except LLMError as e:
         raise HTTPException(status_code=502, detail=str(e))
-    return {"prompt": req.prompt_name, "response": reply,
-            "canary_leaked": canary_leaked(reply)}
+    leaked = bool(canary_leaked(reply))
+    db.add(ManualTest(prompt_name=req.prompt_name, model=req.model,
+                      user_message=req.user_message, response=reply,
+                      canary_leaked=leaked))
+    db.commit()
+    return {"prompt": req.prompt_name, "response": reply, "canary_leaked": leaked}
+
+
+@router.get("/manual-tests")
+def manual_tests(db: Session = Depends(get_db)):
+    rows = db.query(ManualTest).order_by(ManualTest.id.desc()).limit(200).all()
+    return [{"id": r.id, "prompt": r.prompt_name, "model": r.model,
+             "message": r.user_message, "response": r.response,
+             "canary_leaked": r.canary_leaked,
+             "created_at": r.created_at.isoformat()} for r in rows]

@@ -76,3 +76,15 @@ class Defense(Base):
     suggested_patch = Column(Text)
     new_prompt_version_id = Column(Integer, ForeignKey("prompt_versions.id"), nullable=True)
     approved = Column(Boolean, default=False)
+
+
+class ManualTest(Base):
+    """One attack typed by hand in the Red-Team page. Not scored, not part of any experiment."""
+    __tablename__ = "manual_tests"
+    id = Column(Integer, primary_key=True)
+    prompt_name = Column(String)
+    model = Column(String)
+    user_message = Column(Text)
+    response = Column(Text)
+    canary_leaked = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -8,6 +8,7 @@ export default function History() {
   const [onlyFinal, setOnlyFinal] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [manual, setManual] = useState([]);
 
   useEffect(() => {
     setLoading(true);
@@ -16,6 +17,10 @@ export default function History() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [onlyFinal]);
+
+  useEffect(() => {
+    api.manualTests().then(setManual).catch(() => {});
+  }, []);
 
   return (
     <>
@@ -66,6 +71,35 @@ export default function History() {
           {rows.length === 0 && <p>No experiments to show.</p>}
         </div>
       )}
+
+      <h2 style={{ marginTop: 28 }}>Manual tests (Red-Team playground)</h2>
+      <div className="notice">
+        Single attacks typed by hand. These are NOT scored and are not part of any
+        experiment, so they never affect ASR or the other metrics above.
+      </div>
+      <div className="card" style={{ marginTop: 12, overflowX: "auto" }}>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Time</th><th>Prompt</th><th>Attack</th>
+              <th>Reply</th><th>Canary</th></tr>
+          </thead>
+          <tbody>
+            {manual.map((m) => (
+              <tr key={m.id}>
+                <td>{m.id}</td>
+                <td>{new Date(m.created_at + "Z").toLocaleString()}</td>
+                <td>{m.prompt}</td>
+                <td>{m.message.slice(0, 120)}</td>
+                <td>{m.response.slice(0, 160)}</td>
+                <td className={m.canary_leaked ? "red" : "green"}>
+                  {m.canary_leaked ? "LEAKED" : "none"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {manual.length === 0 && <p>No manual tests yet.</p>}
+      </div>
     </>
   );
 }
